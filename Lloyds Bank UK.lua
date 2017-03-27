@@ -1,6 +1,6 @@
 local BANK_CODE = "Lloyds Bank UK"
 
-WebBanking{version     = 1.0,
+WebBanking{version     = 1.01,
            country     = "de",
            url         = "https://online.lloydsbank.co.uk/personal/logon/login.jsp",
            services    = {BANK_CODE},
@@ -50,13 +50,24 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
         step2Page:xpath("//select[@id='frmentermemorableinformation1:strEnterMemorableInformation_memInfo" .. i .. "']"):select("&nbsp;" .. answer)
     end
 
-    startPage = HTML(connection:request(step2Page:xpath("//input[@id='frmentermemorableinformation1:btnContinue']"):click()))
+    -- step 3 (skip messages or assign startpage)
+    local step3Page = HTML(connection:request(step2Page:xpath("//input[@id='frmentermemorableinformation1:btnContinue']"):click()))
 
-    local errorElement = startPage:xpath("//*[@class='formSubmitError']")
+    local errorElement = step3Page:xpath("//*[@class='formSubmitError']")
     if errorElement:length() > 0 then
         return errorElement:text()
     end
 
+    local skipMessagesButton = step3Page:xpath("//input[@id='frmmandatoryMsgs:continue_to_your_accounts2']")
+
+    if skipMessagesButton:length() == 1 then
+        print("Unread mandatory messages available. Log on to website to read them.")
+        startPage = HTML(connection:request(skipMessagesButton:click()))
+    else
+        startPage = step3Page
+    end
+
+    -- startpage
     local logoutButton = startPage:xpath("//a[@id='ifCommercial:ifCustomerBar:ifMobLO:outputLinkLogOut']")
 
     if logoutButton:length() == 1 then
@@ -318,4 +329,4 @@ function printTable(table)
     end
 end
 
--- SIGNATURE: MCwCFAopAIYAHULmwNpfA0uamXybjk9oAhQkhh/i2BAs2SkgE9wUuKh5MoshKA==
+-- SIGNATURE: MCwCFDn621BsX97e8JckjP+0MZyuwMVwAhRJjCwww58fjiEKcqn5qJmQYRM2jw==
