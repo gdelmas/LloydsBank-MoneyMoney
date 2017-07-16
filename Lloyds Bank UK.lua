@@ -89,8 +89,13 @@ end
 function ListAccounts(knownAccounts)
     local accounts = {}
 
-    startPage:xpath("//div[@data-tracking-model='CurrentAccountTile']"):each(
+    startPage:xpath("//div[@data-tracking-model='CurrentAccountTile' or @data-tracking-model='SavingsAccountTile']"):each(
         function(index, element)
+            local accountType = "AccountTypeGiro"
+            if element:attr("data-tracking-model") == "SavingsAccountTile" then
+                accountType = "AccountTypeSavings"
+            end
+            
             local iban, bic, accountNumber, sortCode = getSwiftData(element)
 
             table.insert(accounts, {
@@ -102,7 +107,8 @@ function ListAccounts(knownAccounts)
                 bankCode = sortCode,
                 iban = iban,
                 bic = bic,
-                currency = "GBP"
+                currency = "GBP",
+                type = accountType
             })
         end
     )
@@ -111,13 +117,14 @@ function ListAccounts(knownAccounts)
 end
 
 
-function RefreshAccount (account, since)
+function RefreshAccount(account, since)
     local statementPage = nil
     local balance = nil
     local accountIdentifier = nil
+    local isCurrentAccount = false
 
     -- query balance & get statement url
-    startPage:xpath("//div[@data-tracking-model='CurrentAccountTile']"):each(
+    startPage:xpath("//div[@data-tracking-model='CurrentAccountTile' or @data-tracking-model='SavingsAccountTile']"):each(
         function(index, element)
             local accountNumber = element:xpath(".//dd[@class='account-number']"):text()
 
@@ -128,27 +135,35 @@ function RefreshAccount (account, since)
                 balance = tonumber(balanceStr)
                 
                 accountIdentifier = element:attr("data-ajax-identifier")
+                
+                isCurrentAccount = element:attr("data-tracking-model") == "CurrentAccountTile"
 
                 statementPage = clickHtml(element, ".//dd[@class='account-name']/a[1]")
                 updateLogoutUrl(statementPage)
              end
         end
     )
+    
+    if statementPage == nil then
+        error("Could retrieve statement")
+    end
 
     local transactions = {}
 
     -- load pending transactions
-    local apiPath = "/personal/retail/statement-api/browser/v1/arrangements/" .. accountIdentifier .. "/pendingTransactions"
-    local data = JSON(connection:request("GET", apiPath, nil, nil, {Accept = "application/json"})):dictionary()
-    
-    for key, entry in pairs(data["pendingDebitCardTransactions"]["transactions"]) do
-        table.insert(transactions, {
-            bookingDate = apiDateStrToTimestamp(entry["date"]),
-            purpose = entry["description"],
-            amount = 0 - tonumber(entry["amount"]["amount"]),
-            bookingText = entry["paymentType"],
-            booked = false
-        })        
+    if isCurrentAccount then
+        local apiPath = "/personal/retail/statement-api/browser/v1/arrangements/" .. accountIdentifier .. "/pendingTransactions"
+        local data = JSON(connection:request("GET", apiPath, nil, nil, {Accept = "application/json"})):dictionary()
+        
+        for key, entry in pairs(data["pendingDebitCardTransactions"]["transactions"]) do
+            table.insert(transactions, {
+                bookingDate = apiDateStrToTimestamp(entry["date"]),
+                purpose = entry["description"],
+                amount = 0 - tonumber(entry["amount"]["amount"]),
+                bookingText = entry["paymentType"],
+                booked = false
+            })        
+        end
     end
 
     -- load transactions
@@ -163,12 +178,35 @@ function RefreshAccount (account, since)
                 local firstElement = element:children():get(1)
                 local timestamp = humanDateStrToTimestamp(firstElement:text())
                 local bookingCode = element:children():get(3):text()
+                
+                local transactionCode = nil
+                local amount = nil
+                
+                if isCurrentAccount then
+                    transactionCode = tonumber(firstElement:attr("transactionref"), 16)
+                    amount = tonumber(firstElement:attr("amount"))
+                else
+                    transactionCode = nil
+                    
+                    local inAmountStr = element:children():get(4):text()
+                    local outAmountStr = element:children():get(5):text()
+                    local amountStr
+
+                    if string.len(inAmountStr) > 0 then
+                        amountStr = inAmountStr
+                    else
+                        amountStr = "-" .. outAmountStr
+                    end
+                    
+                    amountStr = string.gsub(amountStr, ",", "")
+                    amount = tonumber(amountStr)
+                end
 
                 table.insert(transactions, {
-                    transactionCode = tonumber(firstElement:attr("transactionref"), 16),
+                    transactionCode = transactionCode,
                     bookingDate = timestamp,
                     purpose = beautifyDescription(element:children():get(2):text(), bookingCode),
-                    amount = firstElement:attr("amount"),
+                    amount = amount,
                     bookingText = lookupBookingCode(bookingCode)
                 })
 
