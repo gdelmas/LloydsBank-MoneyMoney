@@ -1,6 +1,6 @@
 local BANK_CODE = "Lloyds Bank UK"
 
-WebBanking{version     = 1.01,
+WebBanking{version     = 1.02,
            country     = "de",
            url         = "https://online.lloydsbank.co.uk/personal/logon/login.jsp",
            services    = {BANK_CODE},
@@ -114,6 +114,7 @@ end
 function RefreshAccount (account, since)
     local statementPage = nil
     local balance = nil
+    local accountIdentifier = nil
 
     -- query balance & get statement url
     startPage:xpath("//div[@data-tracking-model='CurrentAccountTile']"):each(
@@ -125,6 +126,8 @@ function RefreshAccount (account, since)
                 balanceStr = string.gsub(balanceStr, "£ ", "")
                 balanceStr = string.gsub(balanceStr, ",", "")
                 balance = tonumber(balanceStr)
+                
+                accountIdentifier = element:attr("data-ajax-identifier")
 
                 statementPage = clickHtml(element, ".//dd[@class='account-name']/a[1]")
                 updateLogoutUrl(statementPage)
@@ -135,20 +138,17 @@ function RefreshAccount (account, since)
     local transactions = {}
 
     -- load pending transactions
-    if statementPage ~= nil then
-        statementPage = clickHtml(statementPage, "//tr[@class='pending-transactions']//a")
-        updateLogoutUrl(statementPage)
-
-        statementPage:xpath("//div[@class='pending-transactions-container']//tr[@class='rt-row']"):each(
-            function(index, element)
-                table.insert(transactions, {
-                    bookingDate = humanDateStrToTimestamp(element:xpath(".//td[@class='date']"):text()),
-                    purpose = element:xpath(".//td[@class='description']/span[1]"):text() .. "\n" .. element:xpath(".//td[@class='description']/span[2]"):text(),
-                    amount = 0 - tonumber(element:xpath(".//td[@class='balance right']"):text()),
-                    booked = false
-                })
-            end
-        )
+    local apiPath = "/personal/retail/statement-api/browser/v1/arrangements/" .. accountIdentifier .. "/pendingTransactions"
+    local data = JSON(connection:request("GET", apiPath, nil, nil, {Accept = "application/json"})):dictionary()
+    
+    for key, entry in pairs(data["pendingDebitCardTransactions"]["transactions"]) do
+        table.insert(transactions, {
+            bookingDate = apiDateStrToTimestamp(entry["date"]),
+            purpose = entry["description"],
+            amount = 0 - tonumber(entry["amount"]["amount"]),
+            bookingText = entry["paymentType"],
+            booked = false
+        })        
     end
 
     -- load transactions
@@ -159,7 +159,7 @@ function RefreshAccount (account, since)
         local lastTimestamp = 0
 
         transactionDetails:children():each(
-            function(index, element)
+            function(index, element)  
                 local firstElement = element:children():get(1)
                 local timestamp = humanDateStrToTimestamp(firstElement:text())
                 local bookingCode = element:children():get(3):text()
@@ -237,6 +237,16 @@ function humanDateStrToTimestamp(dateStr)
     return os.time({
         year = 2000 + tonumber(yearStr),
         month = monthDict[monthStr],
+        day = tonumber(dayStr)
+    })
+end
+
+function apiDateStrToTimestamp(dateStr)
+    local yearStr, monthStr, dayStr = string.match(dateStr, "(%d%d%d%d)-(%d%d)-(%d%d)")
+
+    return os.time({
+        year = tonumber(yearStr),
+        month = tonumber(monthStr),
         day = tonumber(dayStr)
     })
 end
@@ -329,4 +339,3 @@ function printTable(table)
     end
 end
 
--- SIGNATURE: MCwCFDn621BsX97e8JckjP+0MZyuwMVwAhRJjCwww58fjiEKcqn5qJmQYRM2jw==
