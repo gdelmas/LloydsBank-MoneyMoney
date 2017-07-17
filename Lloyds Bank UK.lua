@@ -179,15 +179,11 @@ function RefreshAccount(account, since)
                 local timestamp = humanDateStrToTimestamp(firstElement:text())
                 local bookingCode = element:children():get(3):text()
                 
-                local transactionCode = nil
                 local amount = nil
                 
                 if isCurrentAccount then
-                    transactionCode = tonumber(firstElement:attr("transactionref"), 16)
                     amount = tonumber(firstElement:attr("amount"))
-                else
-                    transactionCode = nil
-                    
+                else                
                     local inAmountStr = element:children():get(4):text()
                     local outAmountStr = element:children():get(5):text()
                     local amountStr
@@ -203,7 +199,6 @@ function RefreshAccount(account, since)
                 end
 
                 table.insert(transactions, {
-                    transactionCode = transactionCode,
                     bookingDate = timestamp,
                     purpose = beautifyDescription(element:children():get(2):text(), bookingCode),
                     amount = amount,
