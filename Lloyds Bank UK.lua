@@ -95,7 +95,7 @@ function ListAccounts(knownAccounts)
             if element:attr("data-tracking-model") == "SavingsAccountTile" then
                 accountType = AccountTypeSavings
             end
-            
+
             local iban, bic, accountNumber, sortCode = getSwiftData(element)
 
             table.insert(accounts, {
@@ -133,9 +133,9 @@ function RefreshAccount(account, since)
                 balanceStr = string.gsub(balanceStr, "£ ", "")
                 balanceStr = string.gsub(balanceStr, ",", "")
                 balance = tonumber(balanceStr)
-                
+
                 accountIdentifier = element:attr("data-ajax-identifier")
-                
+
                 isCurrentAccount = element:attr("data-tracking-model") == "CurrentAccountTile"
 
                 statementPage = clickHtml(element, ".//dd[@class='account-name']/a[1]")
@@ -143,7 +143,7 @@ function RefreshAccount(account, since)
              end
         end
     )
-    
+
     if statementPage == nil then
         error("Could retrieve statement")
     end
@@ -154,7 +154,7 @@ function RefreshAccount(account, since)
     if isCurrentAccount then
         local apiPath = "/personal/retail/statement-api/browser/v1/arrangements/" .. accountIdentifier .. "/pendingTransactions"
         local data = JSON(connection:request("GET", apiPath, nil, nil, {Accept = "application/json"})):dictionary()
-        
+
         for key, entry in pairs(data["pendingDebitCardTransactions"]["transactions"]) do
             table.insert(transactions, {
                 bookingDate = apiDateStrToTimestamp(entry["date"]),
@@ -162,7 +162,7 @@ function RefreshAccount(account, since)
                 amount = 0 - tonumber(entry["amount"]["amount"]),
                 bookingText = entry["paymentType"],
                 booked = false
-            })        
+            })
         end
     end
 
@@ -174,16 +174,16 @@ function RefreshAccount(account, since)
         local lastTimestamp = 0
 
         transactionDetails:children():each(
-            function(index, element)  
+            function(index, element)
                 local firstElement = element:children():get(1)
                 local timestamp = humanDateStrToTimestamp(firstElement:text())
                 local bookingCode = element:children():get(3):text()
-                
+
                 local amount = nil
-                
+
                 if isCurrentAccount then
                     amount = tonumber(firstElement:attr("amount"))
-                else                
+                else
                     local inAmountStr = element:children():get(4):text()
                     local outAmountStr = element:children():get(5):text()
                     local amountStr
@@ -193,7 +193,7 @@ function RefreshAccount(account, since)
                     else
                         amountStr = "-" .. outAmountStr
                     end
-                    
+
                     amountStr = string.gsub(amountStr, ",", "")
                     amount = tonumber(amountStr)
                 end
@@ -372,3 +372,4 @@ function printTable(table)
     end
 end
 
+-- SIGNATURE: MCwCFA3kCkYgp7HWH5RimsVxwbnj5J9YAhQeyoDV78M07LGZRc64H9DpccSAmA==
