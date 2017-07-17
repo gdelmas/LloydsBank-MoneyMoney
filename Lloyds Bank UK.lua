@@ -91,9 +91,9 @@ function ListAccounts(knownAccounts)
 
     startPage:xpath("//div[@data-tracking-model='CurrentAccountTile' or @data-tracking-model='SavingsAccountTile']"):each(
         function(index, element)
-            local accountType = "AccountTypeGiro"
+            local accountType = AccountTypeGiro
             if element:attr("data-tracking-model") == "SavingsAccountTile" then
-                accountType = "AccountTypeSavings"
+                accountType = AccountTypeSavings
             end
             
             local iban, bic, accountNumber, sortCode = getSwiftData(element)
