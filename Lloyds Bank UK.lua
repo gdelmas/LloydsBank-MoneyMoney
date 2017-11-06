@@ -58,7 +58,7 @@ function InitializeSession (protocol, bankCode, username, username2, password, u
         return errorElement:text()
     end
 
-    local skipMessagesButton = step3Page:xpath("//input[@id='frmmandatoryMsgs:continue_to_your_accounts2']")
+    local skipMessagesButton = step3Page:xpath("//input[@id='frmmandatoryMsgs:continue_to_your_accounts2' or @id='frm2:btnContinue2']")
 
     if skipMessagesButton:length() == 1 then
         print("Unread mandatory messages available. Log on to website to read them.")
