@@ -1,6 +1,6 @@
 local BANK_CODE = "Lloyds Bank UK"
 
-WebBanking{version     = 1.02,
+WebBanking{version     = 1.03,
            country     = "de",
            url         = "https://online.lloydsbank.co.uk/personal/logon/login.jsp",
            services    = {BANK_CODE},
